@@ -1,4 +1,6 @@
-import { Synthetix, SynthExchange as SynthExchangeEvent } from '../generated/Synthetix/Synthetix';
+import { Synthetix as Synthetix4 } from '../generated/Synthetix4/Synthetix';
+import { Synthetix as Synthetix32, SynthExchange as SynthExchangeEvent } from '../generated/Synthetix32/Synthetix';
+
 import { Synthetix as SynthetixForXDR4 } from '../generated/SynthXDR4/Synthetix';
 import { Synth as SynthXDR4, Issued } from '../generated/SynthXDR4/Synth';
 import { Synthetix as SynthetixForXDR32 } from '../generated/SynthXDR32/Synthetix';
@@ -10,7 +12,7 @@ import { BigInt, Address } from '@graphprotocol/graph-ts';
 
 import { exchangesToIgnore } from './exchangesToIgnore';
 
-import { attemptEffectiveValue, sUSD32, sUSD4 } from './common';
+import { sUSD32, sUSD4 } from './common';
 
 function getMetadata(): Total {
   let total = Total.load('1');
@@ -48,8 +50,21 @@ function handleSynthExchange(event: SynthExchangeEvent, useBytes32: boolean): vo
     return;
   }
 
-  let synthetix = Synthetix.bind(event.address);
-  let toAmount = attemptEffectiveValue(synthetix, event.params.fromCurrencyKey, event.params.fromAmount, useBytes32);
+  let synthetix = null;
+  let toAmount = null;
+  if (useBytes32) {
+    synthetix = Synthetix32.bind(event.address);
+    let effectiveValueTry = synthetix.try_effectiveValue(event.params.fromCurrencyKey, event.params.fromAmount, sUSD32);
+    if (!effectiveValueTry.reverted) {
+      toAmount = effectiveValueTry.value;
+    }
+  } else {
+    synthetix = Synthetix4.bind(event.address);
+    let effectiveValueTry = synthetix.try_effectiveValue(event.params.fromCurrencyKey, event.params.fromAmount, sUSD4);
+    if (!effectiveValueTry.reverted) {
+      toAmount = effectiveValueTry.value;
+    }
+  }
 
   let entity = new SynthExchange(event.transaction.hash.toHex() + '-' + event.logIndex.toString());
   entity.account = event.params.account;
